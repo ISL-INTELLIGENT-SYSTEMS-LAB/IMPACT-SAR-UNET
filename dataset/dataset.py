@@ -17,15 +17,16 @@ class SARDataset(Dataset):
     def __getitem__(self, index):
         img_path = os.path.join(self.image_dir, self.images[index])
         mask_path = os.path.join(self.mask_dir, self.images[index].replace(".jpg", "_mask.gif"))
-        image = np.array(Image.open(img_path).convert("RGB"))
+        image = np.array(Image.open(img_path).convert("RGB"), dtype=np.float32)
         mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
-
+        #print(f"Before transformations - Image index {index} - min/max:", image.min(), image.max()) # debugging statement
         if self.transform is not None:
             augmentations = self.transform(image=image, mask=mask)
             image = augmentations["image"]
             mask = augmentations["mask"]
-
-
-
+        if not isinstance(mask, torch.Tensor):
+            mask = torch.from_numpy(mask).unsqueeze(0)
+        else:
+            mask = mask.unsqueeze(0) if mask.ndim == 2 else mask
         return image, mask
 
