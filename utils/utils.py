@@ -27,13 +27,14 @@ def set_seed(seed_value):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def save_checkpoint(state, filename="my_checkpoint.pth"):
+def save_checkpoint(state, filename="best_model.pth"):
     print("=> Saving checkpoint")
     torch.save(state, filename)
 
-def load_checkpoint(checkpoint, model):
+def load_checkpoint(checkpoint, model, optimizer):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
 
 def get_loaders(
         train_dir,
@@ -134,6 +135,8 @@ def check_accuracy(loader, model, num_classes, device="cuda"):
     print(f'Val Mean IoU: {mean_iou:.4f}')
 
     model.train()
+    
+    return mean_iou
 
 def mask_to_rgb(mask, color_map):
     single_image = False

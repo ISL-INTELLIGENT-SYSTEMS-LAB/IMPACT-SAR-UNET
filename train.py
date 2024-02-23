@@ -18,10 +18,10 @@ from utils.utils import(
 
 # hyperparameters, etc...
 SEED = 42
-LEARNING_RATE = 7e-4
+LEARNING_RATE = 6e-4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 8
-NUM_EPOCHS = 4
+NUM_EPOCHS = 150
 NUM_WORKERS = 8
 IMAGE_HEIGHT = 512
 IMAGE_WIDTH = 512
@@ -61,9 +61,9 @@ def main():
     train_transform = A.Compose(
         [
             A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            #A.Rotate(limit=35, p=1.0),
-            #A.HorizontalFlip(p=0.5),
-            #A.VerticalFlip(p=0.1),
+            A.Rotate(limit=35, p=1.0),
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.1),
             A.Normalize(
                 mean=[0.19884332, 0.13797273, 0.19884332],
                 std=[0.16673183, 0.12461259, 0.16673183],
@@ -126,20 +126,31 @@ def main():
         check_accuracy(val_loader, model, device=DEVICE)
         
     scaler = torch.cuda.amp.GradScaler()
+    best_metric = 0.0
+    best_epoch = 0
 
     for epoch in range(NUM_EPOCHS):
+        print(f"Training epoch {epoch+1}")
         train_fn(train_loader, model, optimizer, loss_fn, scaler)
 
-        # save mode
-        checkpoint = {
+        # check accuracy
+        mean_iou = check_accuracy(val_loader, model, num_classes=5, device=DEVICE)
+        
+        if best_metric < mean_iou:
+            print("Found model with better Mean IoU")
+            best_metric = mean_iou
+            checkpoint = {
             "state_dict": model.state_dict(),
             "optimizer": optimizer.state_dict(),
-        }
-        save_checkpoint(checkpoint)
-        # check accuracy
-        check_accuracy(val_loader, model, num_classes=5, device=DEVICE)
-        # print examples
+            }
+            save_checkpoint(checkpoint)
+            best_epoch = epoch + 1
+            
         if epoch == (NUM_EPOCHS - 1):
+            print(f"Training complete; loading best model from {best_epoch}...")
+            load_checkpoint(torch.load("best_model.pth"), model, optimizer)
+            print("*** Best model metrics: ")
+            best_mIoU = check_accuracy(val_loader, model, num_classes=5, device=DEVICE)
             save_predictions_as_imgs(
                 val_loader, model, folder="saved_images/", device=DEVICE
             )
